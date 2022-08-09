@@ -16,7 +16,7 @@ class RightmoveData:
 
     The query to rightmove can be renewed by calling the `refresh_data` method.
     """
-    def __init__(self, url: str, get_floorplans: bool = False, List: request_proxies=None):
+    def __init__(self, url: str, get_floorplans: bool = False):
         """Initialize the scraper with a URL from the results of a property
         search performed on www.rightmove.co.uk.
 
