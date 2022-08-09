@@ -16,7 +16,7 @@ class RightmoveData:
 
     The query to rightmove can be renewed by calling the `refresh_data` method.
     """
-    def __init__(self, url: str, get_floorplans: bool = False):
+    def __init__(self, url: str, get_floorplans: bool = False, List: request_proxies=None):
         """Initialize the scraper with a URL from the results of a property
         search performed on www.rightmove.co.uk.
 
@@ -80,36 +80,6 @@ class RightmoveData:
         because they artificially restrict the number of results pages that can
         be accessed to 42."""
         return len(self.get_results)
-
-    @property
-    def average_price(self):
-        """Average price of all results returned by `get_results` (ignoring
-        results which don't list a price)."""
-        total = self.get_results["price"].dropna().sum()
-        return total / self.results_count
-
-    def summary(self, by: str = None):
-        """DataFrame summarising results by mean price and count. Defaults to
-        grouping by `number_bedrooms` (residential) or `type` (commercial), but
-        accepts any column name from `get_results` as a grouper.
-
-        Args:
-            by (str): valid column name from `get_results` DataFrame attribute.
-        """
-        if not by:
-            by = "type" if "commercial" in self.rent_or_sale else "number_bedrooms"
-        assert by in self.get_results.columns, f"Column not found in `get_results`: {by}"
-        df = self.get_results.dropna(axis=0, subset=["price"])
-        groupers = {"price": ["count", "mean"]}
-        df = df.groupby(df[by]).agg(groupers)
-        df.columns = df.columns.get_level_values(1)
-        df.reset_index(inplace=True)
-        if "number_bedrooms" in df.columns:
-            df["number_bedrooms"] = df["number_bedrooms"].astype(int)
-            df.sort_values(by=["number_bedrooms"], inplace=True)
-        else:
-            df.sort_values(by=["count"], inplace=True, ascending=False)
-        return df.reset_index(drop=True)
 
     @property
     def rent_or_sale(self):
@@ -259,11 +229,15 @@ class RightmoveData:
         results.loc[results["type"].str.contains("studio", case=False), "number_bedrooms"] = 0
         results["number_bedrooms"] = pd.to_numeric(results["number_bedrooms"])
 
+        # Extract number of bathrooms from `type` to a separate column:
+        results["number_bathrooms"] = results["type"].astype(str).str.extract(pat, expand=True)[0]
+        results.loc[results["type"].str.contains("studio", case=False), "number_bathrooms"] = 0
+        results["number_bathrooms"] = pd.to_numeric(results["number_bathrooms"])
+
         # Clean up annoying white spaces and newlines in `type` column:
         results["type"] = results["type"].str.strip("\n").str.strip()
 
         # Add column with datetime when the search was run (i.e. now):
-        now = datetime.datetime.now()
-        results["search_date"] = now
+        results["search_date"] = datetime.datetime.now()
 
         return results
